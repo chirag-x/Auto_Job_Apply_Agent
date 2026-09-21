@@ -15,3 +15,6 @@ Before running the agent, you must manually log into the job platforms to save y
 
 ## Running the Agent
 `python src/main.py --platform linkedin --limit 10`
+
+# To run in devloper mode ?
+streamlit run src/ui/app.py

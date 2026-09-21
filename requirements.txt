@@ -5,3 +5,6 @@ litellm
 pypdf
 pdfplumber
 python-dotenv
+langchain-openai
+langchain-community
+langchain-google-genai
