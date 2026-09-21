@@ -1,0 +1,7 @@
+streamlit
+browser-use
+playwright
+litellm
+pypdf
+pdfplumber
+python-dotenv
