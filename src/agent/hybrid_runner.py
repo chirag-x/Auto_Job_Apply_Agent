@@ -8,7 +8,7 @@ import argparse
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 from playwright.async_api import async_playwright
-from langchain_openai import ChatOpenAI
+from src.agent.langchain_llm import build_llm
 from src.core.crud import get_all_llm_configs
 
 def get_active_llm():
@@ -19,13 +19,7 @@ def get_active_llm():
         raise ValueError("No active LLM found in database.")
     
     best = active[0]
-    return ChatOpenAI(
-        model=best['model_name'],
-        api_key=best['api_key'],
-        base_url="https://api.groq.com/openai/v1" if best['provider'] == 'groq' else None,
-        temperature=0.2,
-        max_tokens=500 # Restrict output tokens so Groq's free tier doesn't reject it for OTPM limits
-    )
+    return build_llm(best, temperature=0.2, max_tokens=500)
 
 async def apply_to_job(url: str, no_ai: bool = False):
     if not no_ai:
@@ -323,10 +317,28 @@ Job Description:
                         print("[Hybrid Mode] I will wait here until you progress to the next screen...\n")
                         # Wait until the error disappears (meaning the user answered and clicked next)
                         try:
-                            await modal.locator(".artdeco-inline-feedback--error, [role='alert']").first.wait_for(state="hidden", timeout=600000)
-                            print("[Hybrid Mode] Manual input detected! Resuming automation...")
+                            for _ in range(300):
+                                if not await modal.locator(".artdeco-inline-feedback--error, [role='alert']").first.is_visible():
+                                    break
+                                
+                                # Detect if user uploaded a file manually
+                                f_inputs = modal.locator("input[type='file']")
+                                manual_upload = False
+                                for i in range(await f_inputs.count()):
+                                    try:
+                                        if await f_inputs.nth(i).evaluate("el => el.value"):
+                                            manual_upload = True
+                                    except: pass
+                                
+                                if manual_upload:
+                                    print("[Hybrid Mode] Detected manual file upload! Resuming automation...")
+                                    break
+                                    
+                                await page.wait_for_timeout(2000)
+                                
+                            print("[Hybrid Mode] Manual input detected or resolved! Resuming automation...")
                             await page.wait_for_timeout(2000)
-                            continue # Restart the loop for the new screen
+                            # Do not continue loop, let the bottom logic click Next/Submit for them!
                         except Exception:
                             print("[Hybrid Mode] Manual intervention timed out. Proceeding to next step anyway...")
                             break

@@ -9,6 +9,9 @@ from src.core.crud import get_all_llm_configs, save_llm_config, delete_llm_confi
 
 st.set_page_config(page_title="Settings - LLM Config", page_icon="⚙️")
 
+
+
+
 st.title("⚙️ Brain Configuration")
 st.markdown("Configure your AI providers. The agent will attempt to use Priority 1 first, and automatically failover if a rate limit or error occurs.")
 

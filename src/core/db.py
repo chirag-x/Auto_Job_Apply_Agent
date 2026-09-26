@@ -67,7 +67,22 @@ def init_db():
                 match_score INTEGER,
                 applied_at TIMESTAMP,
                 logs TEXT, -- Execution logs or JSON
+                email_alias TEXT, -- Which email alias received updates
                 UNIQUE(platform, job_id) -- Ensures we don't apply to the exact same job twice
+            )
+        ''')
+        
+        # 4. Email Credentials Table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS email_credentials (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                imap_server TEXT NOT NULL,
+                imap_port INTEGER DEFAULT 993,
+                alias TEXT DEFAULT 'Main',
+                email_address TEXT NOT NULL,
+                app_password TEXT NOT NULL,
+                last_scanned_at TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
         

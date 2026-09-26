@@ -121,10 +121,10 @@ with st.form("profile_form"):
     col16, col17 = st.columns(2)
     with col16:
         gender = st.selectbox("Gender", ["Prefer not to say", "Male", "Female", "Non-binary"], index=["Prefer not to say", "Male", "Female", "Non-binary"].index(custom_qa_dict.get("Gender", "Prefer not to say")))
-        veteran = st.selectbox("Veteran Status", ["Prefer not to say", "I am not a protected veteran", "I identify as one or more of the classifications of a protected veteran"], index=0)
+        veteran = st.selectbox("Veteran Status", ["Prefer not to say", "I am not a protected veteran", "I identify as one or more of the classifications of a protected veteran"], index=["Prefer not to say", "I am not a protected veteran", "I identify as one or more of the classifications of a protected veteran"].index(custom_qa_dict.get("Veteran Status", "Prefer not to say")))
     with col17:
-        disability = st.selectbox("Disability Status", ["Prefer not to say", "No, I don't have a disability", "Yes, I have a disability"], index=0)
-        race = st.selectbox("Race/Ethnicity", ["Prefer not to say", "Asian", "White", "Black or African American", "Hispanic or Latino", "Other"], index=0)
+        disability = st.selectbox("Disability Status", ["Prefer not to say", "No, I don't have a disability", "Yes, I have a disability"], index=["Prefer not to say", "No, I don't have a disability", "Yes, I have a disability"].index(custom_qa_dict.get("Disability Status", "Prefer not to say")))
+        race = st.selectbox("Race/Ethnicity", ["Prefer not to say", "Asian", "White", "Black or African American", "Hispanic or Latino", "Other"], index=["Prefer not to say", "Asian", "White", "Black or African American", "Hispanic or Latino", "Other"].index(custom_qa_dict.get("Race/Ethnicity", "Prefer not to say")))
 
     st.subheader("8. Additional Custom QA")
     other_qa_text = custom_qa_dict.get("Other QA", "")
@@ -215,7 +215,14 @@ with st.form("profile_form"):
                 parsed = parse_resume_from_bytes(uploaded_resume)
                 resume_text = parsed["raw_text"]
                 resume_parsed_data = parsed["structured_data"]
-                st.success("Resume parsed successfully!")
+                
+                # Save the physical PDF file to the project root
+                import os
+                resume_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "resume.pdf")
+                with open(resume_path, "wb") as f_pdf:
+                    f_pdf.write(uploaded_resume.getbuffer())
+                    
+                st.success("Resume parsed and saved as PDF successfully!")
                 
         # Package everything back into custom_qa JSON
         new_custom_qa = {
@@ -243,6 +250,10 @@ with st.form("profile_form"):
             "10th Board": board_10,
             "10th Marks": marks_10,
             "10th Passout Year": passout_10,
+              "Top Skill 1": skill_1,
+              "Top Skill 2": skill_2,
+              "Years in Skill 1": skill_1_years,
+              "Years in Skill 2": skill_2_years,
             f"Years of experience in {skill_1}": skill_1_years if skill_1 else "",
             f"Years of experience in {skill_2}": skill_2_years if skill_2 else "",
             "Requires Sponsorship": sponsorship,

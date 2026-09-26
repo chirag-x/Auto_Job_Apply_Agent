@@ -13,7 +13,12 @@ async def record_session(platform_name: str, url: str, output_file: str):
             args=['--disable-blink-features=AutomationControlled'],
             ignore_default_args=["--enable-automation"]
         )
-        context = await browser.new_context()
+        if os.path.exists(output_file):
+            context = await browser.new_context(storage_state=output_file)
+            print(f"Loaded existing session from {output_file}")
+        else:
+            context = await browser.new_context()
+            
         page = await context.new_page()
         
         await page.goto(url)

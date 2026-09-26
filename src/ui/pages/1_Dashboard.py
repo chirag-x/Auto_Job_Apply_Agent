@@ -45,7 +45,7 @@ with get_db_connection() as conn:
 
     # Recent applications for history table
     cur.execute("""
-        SELECT job_title, company, platform, status, match_score, applied_at
+        SELECT job_title, company, platform, status, match_score, applied_at, job_url
         FROM job_applications
         WHERE status IN ('applied', 'failed', 'skipped')
         ORDER BY applied_at DESC LIMIT 10
@@ -119,12 +119,12 @@ if recent_apps:
     header[5].markdown("**Applied At**")
     st.divider()
     for app in recent_apps:
-        title, company, platform, status, score, applied_at = app
+        title, company, platform, status, score, applied_at, job_url = app
         status_icon = "✅" if status == "applied" else "❌" if status == "failed" else "⏭️"
         score_str = f"{score}%" if score else "N/A"
         date_str = applied_at[:16] if applied_at else "—"
         row = st.columns([3, 2, 1, 1, 1, 2])
-        row[0].markdown(f"**{title}**")
+        row[0].markdown(f"**[{title}]({job_url})**")
         row[1].markdown(company)
         row[2].markdown(platform.capitalize())
         row[3].markdown(f"{status_icon} {status.capitalize()}")

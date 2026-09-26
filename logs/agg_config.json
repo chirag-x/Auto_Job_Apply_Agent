@@ -1,0 +1,1 @@
+{"platforms": ["linkedin", "naukri", "internshala", "wellfound", "indeed"], "roles": ["Python"], "location": "India", "start_offset": 10, "max_jobs": 10, "match_threshold": 50, "headless": false}

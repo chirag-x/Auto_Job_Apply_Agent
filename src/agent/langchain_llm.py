@@ -105,3 +105,50 @@ def get_browser_use_llm():
             base_url=base_url if base_url else None,
             temperature=0.0
         )
+
+def build_llm(config, temperature=0.0, max_tokens=None):
+    '''Factory to build an LLM instance from a DB config dictionary.'''
+    provider = config.get('provider', '').lower()
+    model_name = config.get('model_name')
+    api_key = config.get('api_key') or "empty"
+    base_url = config.get('base_url')
+
+    if provider == "ollama":
+        base_url = base_url if base_url else "http://localhost:11434"
+        if not base_url.endswith("/v1"):
+            base_url = base_url.rstrip("/") + "/v1"
+        api_key = "ollama-local"
+    elif provider == "groq":
+        base_url = "https://api.groq.com/openai/v1"
+    elif provider == "openrouter":
+        base_url = "https://openrouter.ai/api/v1"
+    
+    if provider == "gemini":
+        if not api_key or api_key == "empty":
+            raise ValueError("Gemini requires an API Key.")
+        os.environ["GOOGLE_API_KEY"] = api_key
+        from langchain_google_genai import HarmCategory, HarmBlockThreshold
+        safety_settings = {
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+        }
+        kwargs = {
+            "model": model_name,
+            "temperature": temperature,
+            "safety_settings": safety_settings
+        }
+        if max_tokens: kwargs["max_output_tokens"] = max_tokens
+        return ChatGoogleGenerativeAI(**kwargs)
+        
+    kwargs = {
+        "model": model_name,
+        "api_key": api_key,
+        "temperature": temperature,
+        "timeout": 25.0
+    }
+    if base_url: kwargs["base_url"] = base_url
+    if max_tokens: kwargs["max_tokens"] = max_tokens
+    
+    return ChatOpenAI(**kwargs)

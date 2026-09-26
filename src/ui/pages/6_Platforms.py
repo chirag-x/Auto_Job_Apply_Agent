@@ -48,7 +48,7 @@ PLATFORMS = [
         "icon": "🟠",
         "category": "🇮🇳 Indian + Global",
         "description": "#1 job portal in India. Millions of tech and non-tech listings.",
-        "status": "coming_soon",
+        "status": "active",
     },
     {
         "key": "internshala",
@@ -56,7 +56,7 @@ PLATFORMS = [
         "icon": "🟢",
         "category": "🇮🇳 Indian + Global",
         "description": "Best platform for internships and entry-level/fresher jobs in India.",
-        "status": "coming_soon",
+        "status": "active",
     },
     {
         "key": "shine",
@@ -97,7 +97,7 @@ PLATFORMS = [
         "icon": "🚀",
         "category": "🌍 Global / Startup",
         "description": "The #1 platform for startup jobs worldwide. Equity + salary transparency.",
-        "status": "coming_soon",
+        "status": "active",
     },
     {
         "key": "indeed",
@@ -105,7 +105,7 @@ PLATFORMS = [
         "icon": "🌐",
         "category": "🌍 Global / Startup",
         "description": "Largest job board globally. 'Indeed Apply' is their Easy Apply equivalent.",
-        "status": "coming_soon",
+        "status": "active",
     },
     {
         "key": "glassdoor",

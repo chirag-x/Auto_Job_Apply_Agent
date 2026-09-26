@@ -29,3 +29,11 @@ auth.json
 .idea/
 .DS_Store
 Thumbs.db
+
+# Folders
+/docs/
+storageState_*.json
+
+platform_prefs.json
+
+sourcing_prefs.json

@@ -6,19 +6,16 @@ def get_all_llm_configs():
         cursor.execute("SELECT * FROM llm_config ORDER BY priority ASC")
         return [dict(row) for row in cursor.fetchall()]
 
-def save_llm_config(provider, api_key, base_url, model_name, priority, is_active=True):
+def save_llm_config(provider, api_key, base_url, model_name, priority, is_active=True, config_id=None):
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        # Check if provider exists
-        cursor.execute("SELECT id FROM llm_config WHERE provider = ?", (provider,))
-        existing = cursor.fetchone()
         
-        if existing:
+        if config_id:
             cursor.execute('''
                 UPDATE llm_config 
-                SET api_key = ?, base_url = ?, model_name = ?, priority = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE provider = ?
-            ''', (api_key, base_url, model_name, priority, is_active, provider))
+                SET provider = ?, api_key = ?, base_url = ?, model_name = ?, priority = ?, is_active = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (provider, api_key, base_url, model_name, priority, is_active, config_id))
         else:
             cursor.execute('''
                 INSERT INTO llm_config (provider, api_key, base_url, model_name, priority, is_active)
@@ -26,10 +23,10 @@ def save_llm_config(provider, api_key, base_url, model_name, priority, is_active
             ''', (provider, api_key, base_url, model_name, priority, is_active))
         conn.commit()
 
-def delete_llm_config(provider):
+def delete_llm_config(config_id):
     with get_db_connection() as conn:
         cursor = conn.cursor()
-        cursor.execute("DELETE FROM llm_config WHERE provider = ?", (provider,))
+        cursor.execute("DELETE FROM llm_config WHERE id = ?", (config_id,))
         conn.commit()
 
 def get_user_profile():
