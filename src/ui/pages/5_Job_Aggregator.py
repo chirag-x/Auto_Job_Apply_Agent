@@ -39,6 +39,13 @@ def load_platform_prefs():
     return {"linkedin": True}  # Default: LinkedIn only
 
 prefs = load_prefs()
+
+# --- MASTER HEADLESS TOGGLE ---
+st.write("")
+col_htog, _ = st.columns([1, 2])
+with col_htog:
+    headless_mode = st.toggle("🛡️ Run entirely in the background (Headless Mode)", value=prefs.get("headless", True), help="Turn off to see the browser opening and applying in real time.")
+st.write("")
 platform_prefs = load_platform_prefs()
 enabled_platforms = [k for k, v in platform_prefs.items() if v]
 
@@ -67,8 +74,6 @@ with st.expander("🚀 AI Sourcing Engine Control Panel", expanded=True):
             current_threshold = prefs.get("match_threshold", 80)
             if current_threshold not in threshold_options: current_threshold = 80
             match_threshold = st.selectbox("Min Match %", threshold_options, index=threshold_options.index(current_threshold))
-            
-        headless_mode = st.toggle("Run in background (Headless Mode)", value=prefs.get("headless", True), help="Turn off to see the browser opening and searching in real time (good for debugging).")
         
     if st.button("💾 Save Settings", type="secondary"):
         new_prefs = {"roles": job_roles_input, "location": search_location, "max_jobs": max_jobs, "match_threshold": match_threshold, "headless": headless_mode}
@@ -135,7 +140,10 @@ with st.expander("🚀 AI Sourcing Engine Control Panel", expanded=True):
                     cmd = [sys.executable, "src/agent/run_aggregator.py", "logs/agg_config.json"]
                     with open(log_file, "w") as out:
                         if sys.platform == "win32":
-                            p = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, creationflags=subprocess.DETACHED_PROCESS)
+                            if headless_mode:
+                                p = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, creationflags=subprocess.DETACHED_PROCESS)
+                            else:
+                                p = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NEW_CONSOLE)
                         else:
                             p = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
                             
@@ -224,7 +232,10 @@ else:
             with col2:
                 st.markdown(f"**{job['job_title']}** at {job['company']}")
             with col3:
-                st.markdown(f"*{job['platform'].capitalize()}* - [View Listing]({job['job_url']})")
+                  if job['job_url']:
+                      st.markdown(f"*{job['platform'].capitalize()}* - [View Listing]({job['job_url']})")
+                  else:
+                      st.markdown(f"*{job['platform'].capitalize()}*")
             with col4:
                 # Color code the match score
                 score = job['match_score'] or 0
@@ -310,9 +321,14 @@ else:
                     os.remove(engine_log_file)
                     
                 cmd = [sys.executable, "src/agent/run_engine.py"]
+                if headless_mode:
+                    cmd.append("--headless")
                 with open(engine_log_file, "w") as out:
                     if sys.platform == "win32":
-                        p = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, creationflags=subprocess.DETACHED_PROCESS)
+                            if headless_mode:
+                                p = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, creationflags=subprocess.DETACHED_PROCESS)
+                            else:
+                                p = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NEW_CONSOLE)
                     else:
                         p = subprocess.Popen(cmd, stdout=out, stderr=subprocess.STDOUT, start_new_session=True)
                         
@@ -393,7 +409,11 @@ if history:
         status_icon = "✅" if job['status'] == 'applied' else "❌" if job['status'] == 'failed' else "⏭️"
         col_hist_info, col_hist_btn = st.columns([5, 1])
         with col_hist_info:
-            st.markdown(f"{status_icon} **[{job['job_title']}]({job['job_url']})** at {job['company']} ({job['platform'].capitalize()}) — *{job['status'].capitalize()}*")
+            if job['job_url']:
+                url_str = f"**[{job['job_title']}]({job['job_url']})**"
+            else:
+                url_str = f"**{job['job_title']}**"
+            st.markdown(f"{status_icon} {url_str} at {job['company']} ({job['platform'].capitalize()}) - *{job['status'].capitalize()}*")
         with col_hist_btn:
             if job['status'] == 'failed':
                 if st.button("Retry", key=f"retry_{job['id']}", use_container_width=True):
@@ -404,7 +424,10 @@ if history:
                     st.success("Moved back to Pending!")
                     st.rerun()
             elif job['status'] == 'applied':
-                st.link_button("Check", job['job_url'], use_container_width=True)
+                if job['job_url']:
+                    st.link_button("Check", job['job_url'], use_container_width=True)
+                else:
+                    st.button("No Link", disabled=True, use_container_width=True, key=f"nolink_{job['id']}")
 else:
     st.write("No application history yet. Launch the execution engine to start applying!")
 

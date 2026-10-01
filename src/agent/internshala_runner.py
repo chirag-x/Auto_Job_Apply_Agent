@@ -23,30 +23,15 @@ APPLY_SELECTORS = [
 
 
 def get_active_configs():
-    configs = get_all_llm_configs()
-    active = [c for c in configs if c.get('is_active')]
-    active.sort(key=lambda x: x.get('priority', 99))
-    if not active:
-        raise ValueError("No active LLM found in database.")
-    return active
-
-async def invoke_with_fallback(configs, prompt, temperature=0.2, max_tokens=500):
-    import asyncio
-    for best in configs:
-        try:
-            llm = build_llm(best, temperature=temperature, max_tokens=max_tokens)
-            return await asyncio.to_thread(llm.invoke, prompt)
-        except Exception as e:
-            print(f"⚠️ Brain '{best['model_name']}' failed ({e}). Trying next...")
-            continue
-    raise Exception("All active brains failed.")
-
+    pass
 
 async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True, help="Internshala Internship/Job URL")
+    parser.add_argument("--headless", action="store_true", help="Run in headless mode")
     args = parser.parse_args()
     url = args.url
+    headless = args.headless
 
     # Validate session file exists
     if not os.path.exists(SESSION_FILE):
@@ -54,12 +39,12 @@ async def main():
         sys.exit(1)
 
     try:
-        configs = get_active_configs()
+        llm = build_llm()
         profile = get_user_profile() or {}
 
-        print(f"\n[{PLATFORM}] Initializing Playwright...")
+        print(f"\\n[{PLATFORM}] Initializing Playwright (Headless: {headless})...")
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=False)  # Keep visible for user to see and intervene
+            browser = await p.chromium.launch(headless=headless)
 
             context = await browser.new_context(storage_state=SESSION_FILE)
             print(f"[{PLATFORM}] Loaded existing Internshala session.")
@@ -69,6 +54,18 @@ async def main():
             print(f"[{PLATFORM}] Navigating to: {url}")
             await page.goto(url)
             await page.wait_for_timeout(3000)
+
+            # Check if we already applied or are not eligible
+            try:
+                status_loc = page.locator("text='Not eligible', text='Applied', button:has-text('Applied')").first
+                if await status_loc.is_visible(timeout=2000):
+                    status_text = await status_loc.inner_text()
+                    print(f"[{PLATFORM}] Job status is: '{status_text}'. Skipping application.")
+                    print(f"[{PLATFORM}] Application submitted successfully!") # Keep this so it marks as done in DB and doesn't retry
+                    await browser.close()
+                    return
+            except Exception:
+                pass
 
             # --- Find and click Apply button ---
             apply_clicked = False
@@ -148,7 +145,7 @@ Write a concise, professional cover letter (3-4 sentences) customized for this r
 Use the personal statement as a base but tailor it to the role.
 Respond with ONLY the cover letter text — no preamble, no JSON, no markdown.
 """
-                        response = await invoke_with_fallback(configs, prompt)
+                        response = await asyncio.to_thread(llm.invoke, prompt)
                         cover_letter_text = response.content.strip()
                         print(f"[{PLATFORM}] Generated cover letter ({len(cover_letter_text)} chars).")
                         await cover_el.fill(cover_letter_text)
@@ -215,7 +212,7 @@ Respond with ONLY the cover letter text — no preamble, no JSON, no markdown.
                         q = question_text if question_text else placeholder
                         print(f"[{PLATFORM}] Asking Groq for custom question: '{q}'")
                         prompt = f"User Profile: {profile}\nQuestion: {q}\nAnswer honestly based on the profile in 1-2 sentences. Do not use generic placeholders. Raw text only."
-                        response = await invoke_with_fallback(configs, prompt)
+                        response = await asyncio.to_thread(llm.invoke, prompt)
                         await text_input.fill(response.content.strip())
                         await page.wait_for_timeout(500)
                         continue
@@ -232,7 +229,7 @@ Respond with ONLY the cover letter text — no preamble, no JSON, no markdown.
                         }""")
                         print(f"[{PLATFORM}] Asking Groq for radio question: '{question_text}' (Options: {options})")
                         prompt = f"User Profile: {profile}\nQuestion: {question_text}\nOptions: {options}\nChoose the best option. Reply with ONLY the exact option text, nothing else."
-                        response = await invoke_with_fallback(configs, prompt)
+                        response = await asyncio.to_thread(llm.invoke, prompt)
                         answer = response.content.strip().lower()
                         # Click the matching radio label
                         for i in range(await radios.count()):

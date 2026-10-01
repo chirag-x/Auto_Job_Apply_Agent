@@ -24,30 +24,15 @@ APPLY_SELECTORS = [
 
 
 def get_active_configs():
-    configs = get_all_llm_configs()
-    active = [c for c in configs if c.get('is_active')]
-    active.sort(key=lambda x: x.get('priority', 99))
-    if not active:
-        raise ValueError("No active LLM found in database.")
-    return active
-
-async def invoke_with_fallback(configs, prompt, temperature=0.2, max_tokens=500):
-    import asyncio
-    for best in configs:
-        try:
-            llm = build_llm(best, temperature=temperature, max_tokens=max_tokens)
-            return await asyncio.to_thread(llm.invoke, prompt)
-        except Exception as e:
-            print(f"⚠️ Brain '{best['model_name']}' failed ({e}). Trying next...")
-            continue
-    raise Exception("All active brains failed.")
-
+    pass
 
 async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True, help="Naukri Job URL")
+    parser.add_argument("--headless", action="store_true", help="Run in headless mode")
     args = parser.parse_args()
     url = args.url
+    headless = args.headless
 
     # Validate session file exists
     if not os.path.exists(SESSION_FILE):
@@ -55,12 +40,12 @@ async def main():
         sys.exit(1)
 
     try:
-        configs = get_active_configs()
+        llm = build_llm()
         profile = get_user_profile() or {}
 
-        print(f"\n[{PLATFORM}] Initializing Playwright...")
+        print(f"\\n[{PLATFORM}] Initializing Playwright (Headless: {headless})...")
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=False)  # Keep visible for user to see and intervene
+            browser = await p.chromium.launch(headless=headless)
 
             context = await browser.new_context(storage_state=SESSION_FILE)
             print(f"[{PLATFORM}] Loaded existing Naukri session.")
@@ -77,6 +62,17 @@ async def main():
                 print(f"[{PLATFORM}] WARNING: Job redirected to external site ({current_url}). Exiting gracefully.")
                 await browser.close()
                 return
+
+            # Check if we already applied
+            try:
+                status_loc = page.locator("text='Already Applied', text='Applied', button:has-text('Applied')").first
+                if await status_loc.is_visible(timeout=2000):
+                    print(f"[{PLATFORM}] Job already applied. Skipping.")
+                    print(f"[{PLATFORM}] Application submitted successfully!") # Keep this so it marks as done in DB
+                    await browser.close()
+                    return
+            except Exception:
+                pass
 
             # --- Find and click Apply button ---
             apply_clicked = False
@@ -181,7 +177,7 @@ Guidelines:
 - For notice period: use notice period from profile (or "0" if unknown).
 - Keep answers concise and professional.
 """
-                        response = await invoke_with_fallback(configs, prompt)
+                        response = await asyncio.to_thread(llm.invoke, prompt)
                         answer = response.content.strip()
                         print(f"[{PLATFORM}] Groq answer for '{question}': '{answer[:80]}'")
 

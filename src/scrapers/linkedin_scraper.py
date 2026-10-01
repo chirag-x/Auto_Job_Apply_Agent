@@ -83,7 +83,6 @@ async def scrape_linkedin_jobs(roles, location, start_offset=0, max_jobs_per_rol
                         job_url = await a_tag.get_attribute("href")
                         if job_url:
                             if "currentJobId=" in job_url:
-                                import urllib.parse
                                 parsed = urllib.parse.urlparse(job_url)
                                 qs = urllib.parse.parse_qs(parsed.query)
                                 job_id = qs.get("currentJobId", [""])[0]

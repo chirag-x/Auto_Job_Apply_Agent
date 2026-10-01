@@ -14,41 +14,27 @@ PLATFORM = "Indeed"
 SESSION_FILE = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')), "storageState_indeed.json")
 
 def get_active_configs():
-    configs = get_all_llm_configs()
-    active = [c for c in configs if c.get('is_active')]
-    active.sort(key=lambda x: x.get('priority', 99))
-    if not active:
-        raise ValueError("No active LLM found in database.")
-    return active
-
-async def invoke_with_fallback(configs, prompt, temperature=0.2, max_tokens=500):
-    import asyncio
-    for best in configs:
-        try:
-            llm = build_llm(best, temperature=temperature, max_tokens=max_tokens)
-            return await asyncio.to_thread(llm.invoke, prompt)
-        except Exception as e:
-            print(f"⚠️ Brain '{best['model_name']}' failed ({e}). Trying next...")
-            continue
-    raise Exception("All active brains failed.")
+    pass
 
 async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True, help="Indeed Job URL")
+    parser.add_argument("--headless", action="store_true", help="Run in headless mode")
     args = parser.parse_args()
     url = args.url
+    headless = args.headless
 
     if not os.path.exists(SESSION_FILE):
         print(f"[{PLATFORM}] ERROR: Session file not found at {SESSION_FILE}. Please log in first.")
         sys.exit(1)
 
     try:
-        configs = get_active_configs()
+        llm = build_llm()
         profile = get_user_profile() or {}
 
-        print(f"\n[{PLATFORM}] Initializing Playwright...")
+        print(f"\\n[{PLATFORM}] Initializing Playwright (Headless: {headless})...")
         async with async_playwright() as p:
-            browser = await p.chromium.launch(headless=False)
+            browser = await p.chromium.launch(headless=headless)
             
             context = await browser.new_context(
                 storage_state=SESSION_FILE,
@@ -73,8 +59,7 @@ async def main():
                     if await el.is_visible(timeout=100):
                         inner = (await el.inner_text()).strip().lower()
                         # If the element exclusively says "applied" (or very close to it), it's the button
-                        if inner == "applied" or inner == "applied
-":
+                        if inner == "applied" or inner == "applied\\n":
                             found_applied = True
                             break
                 except Exception:
@@ -162,7 +147,44 @@ async def main():
                         btn = iframe.locator(b_sel).first
                         if await btn.count() > 0 and await btn.is_visible():
                             # Before clicking Continue, check if there's any unfilled inputs
-                            inputs = iframe.locator("input[type='text'], textarea, input[type='number']").all()
+                            inputs = await iframe.locator("input:not([type='hidden']):not([type='submit']), textarea, select").all()
+                            
+                            for field in inputs:
+                                try:
+                                    tag = await field.evaluate("el => el.tagName.toLowerCase()")
+                                    field_type = await field.get_attribute("type") or ""
+                                    name_attr = await field.get_attribute("name") or ""
+                                    placeholder = await field.get_attribute("placeholder") or ""
+                                    aria_label = await field.get_attribute("aria-label") or ""
+                                    
+                                    if field_type in ("hidden", "submit", "button", "reset", "file", "checkbox", "radio"):
+                                        continue
+                                    
+                                    val = await field.input_value()
+                                    if val and val.strip():
+                                        continue
+
+                                    question = aria_label or placeholder or name_attr or f"{tag} field"
+                                    if not question.strip():
+                                        continue
+
+                                    print(f"[{PLATFORM}] Asking Groq for iframe field: '{question}'")
+                                    prompt = f"User Profile: {profile}\\nQuestion: {question}\\nAnswer concisely based on the profile. Raw text only."
+                                    response = await asyncio.to_thread(llm.invoke, prompt)
+                                    answer = response.content.strip()
+                                    if tag == "select":
+                                        try:
+                                            await field.select_option(label=answer, timeout=2000)
+                                        except Exception:
+                                            try:
+                                                await field.select_option(index=1, timeout=2000)
+                                            except Exception:
+                                                pass
+                                    else:
+                                        await field.fill(answer)
+                                        await page.wait_for_timeout(500)
+                                except Exception as e:
+                                    print(f"[{PLATFORM}] Could not fill iframe field: {e}")
                             
                             print(f"[{PLATFORM}] Found '{b_sel}' button. Clicking...")
                             await btn.scroll_into_view_if_needed()

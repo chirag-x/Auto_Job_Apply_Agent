@@ -8,8 +8,14 @@ import subprocess
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from src.core.db import get_db_connection
 
+import argparse
+
 def main():
-    print("Starting Background Execution Engine...", flush=True)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--headless", action="store_true", help="Run entirely in the background")
+    args = parser.parse_args()
+    
+    print(f"Starting Background Execution Engine (Headless: {args.headless})...", flush=True)
     
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -42,6 +48,8 @@ def main():
         runner = RUNNER_MAP.get(platform)
         if runner and os.path.exists(runner):
             cmd = [sys.executable, runner, "--url", job_url]
+            if args.headless:
+                cmd.append("--headless")
             try:
                 env = os.environ.copy()
                 env["PYTHONIOENCODING"] = "utf-8"

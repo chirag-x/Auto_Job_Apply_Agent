@@ -9,14 +9,29 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 from src.core.db import get_db_connection
 
 st.set_page_config(
-    page_title="Mission Control | Auto Job Agent",
+    page_title="Mission Control | Rolvio",
     page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-st.title("🚀 Mission Control")
+# --- BRANDING OVERLAY ---
+st.markdown("""
+    <div style='position: fixed; bottom: 20px; left: 20px; background: rgba(0, 0, 0, 0.85); color: #fff; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 14px; z-index: 9999; border: 1px solid #333;'>
+        🛡️ Norvi Agent
+    </div>
+""", unsafe_allow_html=True)
+
+
+st.title("🚀 Rolvio Mission Control")
 st.markdown("Your autonomous job search command center.")
+
+# --- ONBOARDING / SETUP ---
+st.info("👋 **Welcome to Rolvio!** If this is your first time, please run the quick setup guide to configure your agent.")
+if st.button("🚀 Run Setup Guide & Configuration", use_container_width=True, type="primary"):
+    st.switch_page("pages/3_Norvi_Account.py")
+
+st.divider()
 
 # --- System Status ---
 st.subheader("System Status")
@@ -37,7 +52,7 @@ col4.metric("Interview Invite Rate", invite_rate)
 st.divider()
 
 # --- Master Controls ---
-st.subheader("⚡ Master Controls")
+st.subheader("⚙️ Master Controls")
 st.markdown("Quickly launch background processes. (For detailed settings, use the specific pages in the sidebar).")
 
 c1, c2, c3 = st.columns(3)
@@ -61,37 +76,3 @@ with c3:
         st.switch_page("pages/6_Interview_Tracker.py")
         
 st.divider()
-
-# --- Recent Activity Feed ---
-st.subheader("📡 Live Activity Feed")
-
-with get_db_connection() as conn:
-    query = """
-        SELECT company, job_title, platform, status, applied_at, logs 
-        FROM job_applications 
-        ORDER BY applied_at DESC 
-        LIMIT 20
-    """
-    df_activity = pd.read_sql_query(query, conn)
-
-if df_activity.empty:
-    st.write("No activity yet. Start the Job Aggregator!")
-else:
-    # Build a visual terminal-like feed
-    feed_html = "<div style='background-color:#1E1E1E; color:#D4D4D4; padding:20px; border-radius:10px; font-family:monospace; height:400px; overflow-y:scroll;'>"
-    
-    for _, row in df_activity.iterrows():
-        time_str = str(row['applied_at'])[:16] if pd.notna(row['applied_at']) else "Unknown Time"
-        status_color = "#4CAF50" if row['status'] in ['applied', 'interview_invite', 'offer'] else "#FF9800" if row['status'] == 'assessment' else "#F44336" if row['status'] in ['rejected', 'failed'] else "#9E9E9E"
-        
-        # Do not use indentation for HTML inside markdown to avoid triggering code blocks
-        feed_html += f"""<div style='margin-bottom: 10px; border-bottom: 1px solid #333; padding-bottom: 10px;'>
-<span style='color:#569CD6;'>[{time_str}]</span> 
-<span style='color:#4EC9B0;'>[{row['platform'].upper()}]</span> 
-<span style='color:{status_color}; font-weight:bold;'>[{row['status'].upper()}]</span> 
-<b>{row['company']}</b> - {row['job_title']}
-<br>
-<span style='color:#808080; font-size:0.9em;'> > {str(row['logs'])[:150]}...</span>
-</div>"""
-    feed_html += "</div>"
-    st.markdown(feed_html, unsafe_allow_html=True)
